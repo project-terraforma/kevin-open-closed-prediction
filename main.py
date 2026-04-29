@@ -1,19 +1,25 @@
 import pandas as pd
 import numpy as np
 
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MultiLabelBinarizer
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import FeatureUnion, Pipeline
+from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, StandardScaler
 
 # --------------------
 # 1. Load data
 # --------------------
-df = pd.read_parquet("project_c_samples.parquet")
+df = pd.read_parquet("./data/project_c_samples.parquet")
+# df = pd.read_parquet("./data/sample_3k_overture_places.parquet")
+
+# pd.set_option('display.max_colwidth', None)
+# pd.set_option('display.max_rows', None)
+# pd.set_option('display.max_columns', None)
+# print(df.sample())
 
 # --------------------
 # 2. Basic cleanup
@@ -53,63 +59,105 @@ def extract_categories(x):
 
 df["categories_text"] = df["categories"].apply(extract_categories).fillna("").astype(str)
 
-# Combine name + brand as text signal
-df["name_text"] = (
-    df["names"].fillna("").astype(str)
-    + " "
-    + df["brand"].fillna("").astype(str)
-)
+def extract_name(x):
+    if isinstance(x, dict):
+        return x.get("primary") or ""
+    return ""
+
+df["name_text"] = df["names"].apply(extract_name)
 
 # Count-based features (simple signal strength proxies)
-df["num_websites"] = df["websites"].apply(lambda x: len(x) if isinstance(x, list) else 0)
-df["num_phones"] = df["phones"].apply(lambda x: len(x) if isinstance(x, list) else 0)
-df["num_socials"] = df["socials"].apply(lambda x: len(x) if isinstance(x, list) else 0)
+df["num_websites"] = df["websites"].apply(lambda x: 0 if x is None else len(x))
+df["num_phones"] = df["phones"].apply(lambda x: 0 if x is None else len(x))
+df["num_socials"] = df["socials"].apply(lambda x: 0 if x is None else len(x))
+
+df["contact_score"] = (
+    (df["num_websites"] > 0).astype(int) +
+    (df["num_phones"] > 0).astype(int) +
+    (df["num_socials"] > 0).astype(int)
+)
+
+df["low_contact"] = (df["contact_score"] <= 1).astype(int)
 
 # Confidence (already numeric but ensure clean)
 df["confidence"] = df["confidence"].fillna(0)
 
+df["name_length"] = df["name_text"].apply(len)
+
+def get_primary_category(x):
+    if isinstance(x, dict):
+        return x.get("primary", "")
+    return ""
+df["primary_category"] = df["categories"].apply(get_primary_category).fillna("")
+
+df["has_numbers_in_name"] = df["name_text"].str.contains(r"\d", na=False).astype(int)
+
+df["num_categories"] = df["categories_text"].apply(lambda x: len(x.split()))
+df["multi_category"] = (df["num_categories"] > 2).astype(int)
+
+df["name_equals_category_hint"] = (
+    df["name_text"].fillna("").str.lower()
+    == df["primary_category"].fillna("").str.lower()
+).astype(int)
+
 # --------------------
 # 4. Feature columns
 # --------------------
-text_features = "name_text"
-category_features = "categories_text"
 
 numeric_features = [
     "confidence",
-    "num_websites",
-    "num_phones",
-    "num_socials"
+    "contact_score",
+    "name_length",
+    "has_numbers_in_name",
+    "multi_category",
+    "name_equals_category_hint"
 ]
-
-text_cols = ["name_text", "categories_text"]
-num_cols = numeric_features
-
-X = df[text_cols + num_cols]
-
-# Actually split properly:
-X_text = df[["name_text", "categories_text"]]
-X_num = df[numeric_features]
 
 # --------------------
 # 5. Preprocessing
 # --------------------
 
-text_transformer = Pipeline([
-    ("tfidf", TfidfVectorizer(max_features=5000, stop_words="english"))
-])
-
-from sklearn.pipeline import FeatureUnion
-
 preprocess = ColumnTransformer([
-    ("name_tfidf", TfidfVectorizer(max_features=5000), "name_text"),
-    ("cat_tfidf", TfidfVectorizer(max_features=2000), "categories_text"),
-    ("num", SimpleImputer(strategy="median"), numeric_features)
+    ("name_tfidf", TfidfVectorizer(
+        max_features=8000,
+        ngram_range=(1, 2),
+        min_df=3,
+        max_df=0.9,
+        sublinear_tf=True
+    ), "name_text"),
+
+    ("cat_tfidf", TfidfVectorizer(
+        max_features=4000,
+        ngram_range=(1, 2),
+        min_df=3,
+        max_df=0.9,
+        sublinear_tf=True
+    ), "categories_text"),
+
+    ("primary_cat", OneHotEncoder(handle_unknown="ignore"), ["primary_category"]),
+
+    ("num", Pipeline([
+        ("impute", SimpleImputer(strategy="median")),
+        ("scale", StandardScaler())
+    ]), numeric_features),
 ])
 
 # --------------------
 # 6. Model
 # --------------------
-model = LogisticRegression(max_iter=1000, class_weight="balanced")
+
+from sklearn.utils.class_weight import compute_class_weight
+
+classes = np.array([0, 1])
+weights = compute_class_weight(class_weight=None, classes=classes, y=y)
+class_weight = {0: weights[0], 1: weights[1]}
+
+model = LogisticRegression(
+    max_iter=3000,
+    C=0.5,               # slightly stronger regularization helps stability
+    solver="liblinear",  # better for small/imbalanced problems
+    class_weight=class_weight
+)
 
 clf = Pipeline([
     ("features", preprocess),
@@ -119,7 +167,7 @@ clf = Pipeline([
 # --------------------
 # 7. Train/test split
 # --------------------
-X = df[["name_text", "categories_text"] + numeric_features]
+X = df[["name_text", "categories_text", "primary_category"] + numeric_features]
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
@@ -133,11 +181,66 @@ clf.fit(X_train, y_train)
 # --------------------
 # 9. Evaluate
 # --------------------
-y_pred = clf.predict(X_test)
+# y_pred = clf.predict(X_test)
+from sklearn.metrics import f1_score, classification_report, confusion_matrix
 
+y_probs = clf.predict_proba(X_test)[:, 1]
+
+best_score = -1
+best_thresh = 0
+
+best_f1_0 = 0
+best_f1_1 = 0
+best_macro = 0
+
+for t in np.linspace(0.05, 0.95, 100):
+    preds = (y_probs > t).astype(int)
+
+    f1_0 = f1_score(y_test, preds, pos_label=0)
+    f1_1 = f1_score(y_test, preds, pos_label=1)
+    macro = (f1_0 + f1_1) / 2
+
+    # your current optimization objective (kept unchanged)
+    score = 0.6 * f1_0 + 0.4 * f1_1
+
+    if score > best_score:
+        best_score = score
+        best_thresh = t
+        best_f1_0 = f1_0
+        best_f1_1 = f1_1
+        best_macro = macro
+
+print("\n=== BEST THRESHOLD RESULTS ===")
+print("Best threshold:", best_thresh)
+print("Best weighted score:", best_score)
+
+print("\nClass-wise performance at best threshold:")
+print("Closed class F1 (0):", best_f1_0)
+print("Open class F1 (1):", best_f1_1)
+print("Macro F1:", best_macro)
+
+# final predictions
+y_pred = (y_probs > best_thresh).astype(int)
+
+print("\n=== CLASSIFICATION REPORT ===")
 print(classification_report(y_test, y_pred))
 
-print("Closed F1:",
-      f1_score(y_test, y_pred, pos_label=0))
-
+print("=== CONFUSION MATRIX ===")
 print(confusion_matrix(y_test, y_pred))
+print("""
+[[ TN  FN]
+ [ FP  TP]]""")
+
+# pd.set_option('display.max_colwidth', None)
+# pd.set_option('display.max_rows', None)
+# pd.set_option('display.max_columns', None)
+# print(df.sample())
+
+feature_names = clf.named_steps["features"].get_feature_names_out()
+coefficients = clf.named_steps["model"].coef_[0]
+
+# Look at top features
+top_features = sorted(zip(coefficients, feature_names), key=lambda x: abs(x[0]), reverse=True)
+
+for coef, name in top_features[:20]:
+    print(coef, name)
