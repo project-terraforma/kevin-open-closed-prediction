@@ -1,6 +1,7 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import os
 import pandas as pd
-import numpy as np
 
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -201,6 +202,56 @@ def save_results(
     return metrics_path, features_path
 
 
+def save_visualizations(out_dir: str, y_test, y_pred, y, top_features):
+    os.makedirs(out_dir, exist_ok=True)
+
+    # 1) Class distribution
+    class_counts = y.value_counts().sort_index()
+    plt.figure(figsize=(6, 4))
+    plt.bar(["Closed (0)", "Open (1)"], [class_counts.get(0, 0), class_counts.get(1, 0)])
+    plt.title("Class Distribution")
+    plt.xlabel("Class")
+    plt.ylabel("Count")
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, "class_distribution.png"), dpi=150)
+    plt.close()
+
+    # 2) Confusion matrix heatmap
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(5, 4))
+    plt.imshow(cm)
+    plt.title("Confusion Matrix")
+    plt.xticks([0, 1], ["Closed", "Open"])
+    plt.yticks([0, 1], ["Closed", "Open"])
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            plt.text(j, i, str(cm[i, j]), ha="center", va="center")
+
+    plt.colorbar()
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, "confusion_matrix.png"), dpi=150)
+    plt.close()
+
+    # 3) Top feature coefficients
+    top_pos = sorted(top_features, key=lambda x: x[0], reverse=True)[:10]
+    top_neg = sorted(top_features, key=lambda x: x[0])[:10]
+    combined = list(reversed(top_neg)) + top_pos
+
+    labels = [name for _, name in combined]
+    values = [coef for coef, _ in combined]
+
+    plt.figure(figsize=(10, 8))
+    plt.barh(labels, values)
+    plt.title("Top Positive and Negative Features")
+    plt.xlabel("Coefficient")
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, "top_features.png"), dpi=150)
+    plt.close()
+
+
 def main():
     print("Loading data...")
     df = load_and_prepare_data("./data/project_c_samples.parquet")
@@ -307,9 +358,20 @@ def main():
         top_features=top_features,
     )
 
+    save_visualizations(
+        out_dir="./results",
+        y_test=y_test,
+        y_pred=y_pred,
+        y=y,
+        top_features=top_features,
+    )
+
     print("\nSaved results to:")
     print(metrics_path)
     print(features_path)
+    print(os.path.join("./results", "class_distribution.png"))
+    print(os.path.join("./results", "confusion_matrix.png"))
+    print(os.path.join("./results", "top_features.png"))
 
 
 if __name__ == "__main__":
