@@ -1,0 +1,40 @@
+FINAL METRICS
+============================================================
+
+Total rows: 3425
+Closed (0): 313
+Open (1):   3112
+
+DEFAULT THRESHOLD (0.5)
+------------------------------------------------------------
+Closed class F1 (0): 0.272727
+Open class F1 (1):   0.877133
+Macro F1:            0.574930
+
+BEST THRESHOLD RESULTS
+------------------------------------------------------------
+Best threshold:      0.413636
+Best weighted score: 0.542783
+Closed class F1 (0): 0.295302
+Open class F1 (1):   0.914005
+Macro F1:            0.604653
+
+CLASSIFICATION REPORT
+------------------------------------------------------------
+              precision    recall  f1-score   support
+
+           0       0.26      0.35      0.30        63
+           1       0.93      0.90      0.91       622
+
+    accuracy                           0.85       685
+   macro avg       0.59      0.62      0.60       685
+weighted avg       0.87      0.85      0.86       685
+
+
+CONFUSION MATRIX
+------------------------------------------------------------
+[[ 22  41]
+ [ 64 558]]
+
+[[ TN  FN]
+ [ FP  TP]]

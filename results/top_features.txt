@@ -1,0 +1,23 @@
+TOP FEATURES
+============================================================
+
+-2.147052	name_tfidf__redbox
+-1.625015	cat_tfidf__sushi_restaurant
+1.341805	cat_tfidf__retail
+-1.282068	name_tfidf__security
+-1.239779	cat_tfidf__interior_design
+-1.221107	primary_cat__primary_category_videographer
+-1.211760	name_tfidf__laundry
+-1.196426	name_tfidf__law group
+-1.169832	name_tfidf__woods
+-1.164000	cat_tfidf__texmex_restaurant restaurant
+-1.131852	cat_tfidf__cafe
+-1.115175	cat_tfidf__gardener
+-1.106646	cat_tfidf__none hotel
+-1.106093	primary_cat__primary_category_discount_store
+-1.083097	name_tfidf__rock
+-1.081134	primary_cat__primary_category_pizza_restaurant
+-1.065478	name_tfidf__state
+-1.055229	name_tfidf__cabin
+-1.055223	cat_tfidf__hotel
+-1.042999	primary_cat__primary_category_american_restaurant
