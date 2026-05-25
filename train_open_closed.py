@@ -7,19 +7,13 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import FeatureUnion, Pipeline
-from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 # --------------------
 # 1. Load data
 # --------------------
 df = pd.read_parquet("./data/project_c_samples.parquet")
-# df = pd.read_parquet("./data/sample_3k_overture_places.parquet")
-
-# pd.set_option('display.max_colwidth', None)
-# pd.set_option('display.max_rows', None)
-# pd.set_option('display.max_columns', None)
-# print(df.sample())
 
 # --------------------
 # 2. Basic cleanup
@@ -146,17 +140,11 @@ preprocess = ColumnTransformer([
 # 6. Model
 # --------------------
 
-from sklearn.utils.class_weight import compute_class_weight
-
-classes = np.array([0, 1])
-weights = compute_class_weight(class_weight=None, classes=classes, y=y)
-class_weight = {0: weights[0], 1: weights[1]}
-
 model = LogisticRegression(
     max_iter=3000,
-    C=0.5,               # slightly stronger regularization helps stability
-    solver="liblinear",  # better for small/imbalanced problems
-    class_weight=class_weight
+    C=0.5,
+    solver="liblinear",
+    class_weight="balanced"
 )
 
 clf = Pipeline([
@@ -181,8 +169,6 @@ clf.fit(X_train, y_train)
 # --------------------
 # 9. Evaluate
 # --------------------
-# y_pred = clf.predict(X_test)
-from sklearn.metrics import f1_score, classification_report, confusion_matrix
 
 y_probs = clf.predict_proba(X_test)[:, 1]
 
@@ -230,11 +216,6 @@ print(confusion_matrix(y_test, y_pred))
 print("""
 [[ TN  FN]
  [ FP  TP]]""")
-
-# pd.set_option('display.max_colwidth', None)
-# pd.set_option('display.max_rows', None)
-# pd.set_option('display.max_columns', None)
-# print(df.sample())
 
 feature_names = clf.named_steps["features"].get_feature_names_out()
 coefficients = clf.named_steps["model"].coef_[0]
