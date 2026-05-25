@@ -7,33 +7,45 @@ Project C: Open & Closed Prediction
 
 ## Overview
 
-This project explores whether a place is open or closed using Overture Maps place data. This repository's focus is on how well a model can detect the closed class, and what makes models struggle to achieve this, since closed places are the harder case and are often less clearly discussed in related work.
+This project explores whether a place is open or closed using Overture Maps place data. The primary focus of this repository is understanding how well a model can detect the closed class and what factors make closed-place prediction difficult, since closed places are both less common and more difficult to classify accurately.
 
-The work in this repository is a baseline logistic regression model built on the provided `project_c_samples.parquet` dataset. I experimented with text features, numeric features, class balancing, threshold tuning, and feature simplification to see what most affected closed-class performance.
+This repository implements a baseline logistic regression model trained on the provided `project_c_samples.parquet` dataset. The project experiments with text features, numeric metadata, class balancing, threshold tuning, and feature simplification to analyze what most affects closed-class performance.
+
+---
 
 ## Goal
 
-The goal of this project was to improve closed-place prediction and measure performance using class-specific metrics such as precision, recall, and F1 score.
+The goal of this project was to improve closed-place prediction and evaluate performance using class-specific metrics such as precision, recall, and F1 score, with particular emphasis on the closed class.
+
+---
 
 ## Repository Contents
 
 This repository contains:
 - the main training and evaluation script
 - feature engineering code
-- model evaluation using classification report and confusion matrix
+- model evaluation using classification reports and confusion matrices
 - threshold tuning for closed-class performance
+- automatic saving of metrics and feature outputs
+- generated visualizations for model analysis
 
+The training script generates visualization outputs for:
+- class distribution
+- confusion matrix
+- top feature coefficients
+
+---
 
 ## Dataset
 
-The main dataset used in this repository is:
+The primary dataset used in this repository is:
 
 - `project_c_samples.parquet`
 
-This file contains pre-labeled place records with the target column:
+This dataset contains pre-labeled place records with the target column:
 
-- `open`  
-  - `1` = place is open  
+- `open`
+  - `1` = place is open
   - `0` = place is closed
 
 Useful columns include:
@@ -49,17 +61,59 @@ Useful columns include:
 
 ---
 
+## Repository Structure
+
+```text
+kevin-open-closed-prediction/
+│
+├── data/
+│   └── project_c_samples.parquet
+│
+├── results/
+│   ├── final_metrics.txt
+│   ├── top_features.txt
+│   ├── class_distribution.png
+│   ├── confusion_matrix.png
+│   └── top_features.png
+│
+├── train_open_closed.py
+├── README.md
+├── requirements.txt
+└── .gitignore
+```
+
+---
+
 ## Approach
 
-I used a logistic regression model with a mix of:
+The model uses logistic regression with a combination of:
 
-- text features from place names and categories
+- TF-IDF text features from business names and categories
 - structured categorical features
-- numeric features based on contact presence and metadata
+- engineered numeric metadata features
 - class balancing
-- threshold tuning for closed-class performance
+- threshold tuning for closed-class optimization
 
-I also tested several feature combinations to see whether additional engineered features improved closed prediction.
+Additional feature engineering experiments were also tested to determine whether more complex engineered signals improved closed-place prediction performance.
+
+---
+
+## Results
+
+Using a tuned logistic regression baseline with TF-IDF text features and engineered metadata features:
+
+- Closed-class F1 score reached approximately **0.29**
+- Open-class F1 score reached approximately **0.94**
+- Macro F1 score reached approximately **0.62**
+- Threshold tuning improved closed-place detection compared to the default threshold
+
+Generated outputs include:
+- classification reports
+- confusion matrices
+- top learned feature coefficients
+- dataset distribution visualizations
+
+**Note:** The primary contribution of this repository is not achieving the highest possible prediction accuracy. Instead, the project focuses on understanding why closed-place prediction is difficult and identifying which modeling decisions most strongly affect closed-class performance.
 
 ---
 
@@ -138,9 +192,39 @@ Several directions could improve closed-place prediction beyond the baseline exp
 
 ---
 
-## Notes
+## Limitations
 
 This project is meant as a research baseline rather than a final production model. The main contribution is understanding what affects closed-place prediction and what does not.
+
+---
+
+## Running the Project
+
+### Prerequisites
+- Python 3.10+
+- pip package manager
+
+### Steps
+1. **Clone the repository**
+
+    `git clone https://github.com/project-terraforma/kevin-open-closed-prediction.git`
+
+2. **Create a virtual environment (optional but recommended)**
+    ```
+    python -m venv venv
+    source venv/bin/activate    # Linux/Mac
+    venv\Scripts\activate       # Windows
+    ```
+
+3. **Install dependences**
+
+    `pip install -r requirements.txt`
+
+4. **Run the training script**
+
+    `python train_open_closed.py`
+
+Results and visualizations will automatically be saved to the `results/` directory.
 
 ---
 
